@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>A 20. század eleji fejlődő város – Interaktív tabló</title>
+  <style>
+    :root {
+      --bg-paper: #f3ead8;
+      --bg-panel: #fbf6eb;
+      --ink-dark: #2b2118;
+      --ink-muted: #645342;
+      --accent-gold: #c68b2c;
+      --accent-blue: #2d5f7e;
+      --accent-green: #2e7d4f;
+      --accent-red: #b9382c;
+      --border-vintage: #cbb99a;
+      --shadow-soft: 0 4px 12px rgba(43, 33, 24, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #f8f1e3 0%, #e7dac2 100%);
+      color: var(--ink-dark);
+      font-family: "Segoe UI", "Trebuchet MS", system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      width: 100%;
+      max-width: 1920px;
+      margin: 0 auto;
+      padding: 4px 5px;
+      gap: 4px;
+    }
+
+    /* Ultra-Compact Header */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-vintage);
+      border-radius: 9px;
+      padding: 4px 10px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .title-block {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(0.95rem, 1.35vw, 1.2rem);
+      color: var(--ink-dark);
+    }
+
+    .subtitle {
+      font-size: clamp(0.72rem, 0.9vw, 0.82rem);
+      color: var(--ink-muted);
+    }
+
+    .hud {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .active-prompt {
+      background: #fff7e2;
+      border: 1.5px solid var(--accent-gold);
+      border-radius: 7px;
+      padding: 3px 9px;
+      font-size: clamp(0.78rem, 0.98vw, 0.88rem);
+      font-weight: 600;
+      color: #5b3c0b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .active-prompt span.target-name {
+      color: var(--accent-blue);
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .lives-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff;
+      border: 1.5px solid var(--border-vintage);
+      border-radius: 7px;
+      padding: 3px 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+    }
+
+    .hearts {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+
+    .heart {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    .heart.lost {
+      opacity: 0.22;
+      filter: grayscale(1);
+      transform: scale(0.8);
+    }
+
+    .progress-pill {
+      background: #edf5ef;
+      border: 1.5px solid #a9cfb6;
+      color: #1f5c39;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 7px;
+      font-size: 0.82rem;
+    }
+
+    .btn-icon {
+      appearance: none;
+      border: 1.5px solid var(--border-vintage);
+      background: #fff;
+      color: var(--ink-dark);
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-icon:hover {
+      background: #f5ebd8;
+    }
+
+    .btn-icon:active {
+      transform: scale(0.97);
+    }
+
+    /* Main Workspace: Very Slim Side Columns + Maximized Tableau */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(102px, 122px) 1fr minmax(102px, 122px);
+      gap: 5px;
+      align-items: stretch;
+      min-height: 0;
+    }
+
+    .side-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-vintage);
+      border-radius: 10px;
+      padding: 6px 5px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .label-card {
+      position: relative;
+      background: #fffdf8;
+      border: 1.5px solid #bfa986;
+      border-radius: 7px;
+      padding: 6px 4px;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: clamp(0.72rem, 0.86vw, 0.83rem);
+      line-height: 1.15;
+      font-weight: 700;
+      color: var(--ink-dark);
+      cursor: pointer;
+      box-shadow: 0 2px 0 #d5c4a7;
+      transition: transform 0.14s, border-color 0.14s, background 0.14s, box-shadow 0.14s;
+      touch-action: none;
+    }
+
+    .label-card:hover:not(.found) {
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+    }
+
+    .label-card.active {
+      background: #e6f2fa;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(45, 95, 126, 0.25), 0 2.5px 0 var(--accent-blue);
+      color: #153c54;
+      transform: scale(1.03);
+    }
+
+    .label-card.found {
+      background: #e8f5ec;
+      border-color: var(--accent-green);
+      color: #1f5e39;
+      box-shadow: none;
+      cursor: default;
+      opacity: 0.9;
+      padding-right: 17px;
+    }
+
+    .label-card.found::after {
+      content: "✓";
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.8rem;
+      font-weight: 900;
+      color: var(--accent-green);
+    }
+
+    /* Maximized Tableau Container */
+    .tableau-wrap {
+      position: relative;
+      background: #fffdf7;
+      border: 2px solid #9e8766;
+      border-radius: 12px;
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+    }
+
+    .tableau-wrap.shake {
+      animation: shakeBoard 0.36s ease;
+    }
+
+    @keyframes shakeBoard {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+
+    svg#city-svg {
+      width: 100%;
+      height: 100%;
+      max-height: calc(100dvh - 80px);
+      display: block;
+      cursor: crosshair;
+      touch-action: manipulation;
+    }
+
+    /* Interactive target hover feedback */
+    .city-target, .city-distractor {
+      cursor: pointer;
+    }
+
+    .city-target .hit-area,
+    .city-distractor .hit-area {
+      fill: transparent;
+      stroke: transparent;
+    }
+
+    .city-target:hover .target-highlight,
+    .city-distractor:hover .target-highlight {
+      filter: drop-shadow(0 0 6px rgba(212, 148, 36, 0.55));
+    }
+
+    .city-target.found-glow .target-highlight {
+      filter: drop-shadow(0 0 6px rgba(46, 125, 79, 0.45));
+    }
+
+    /* Placed map pins */
+    .map-pin {
+      pointer-events: none;
+      animation: popPin 0.35s cubic-bezier(0.22, 1.35, 0.55, 1) forwards;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    @keyframes popPin {
+      0% { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Click feedback ripple */
+    .click-feedback {
+      position: absolute;
+      pointer-events: none;
+      width: 44px;
+      height: 44px;
+      margin-left: -22px;
+      margin-top: -22px;
+      border-radius: 50%;
+      border: 4px solid var(--accent-red);
+      background: rgba(185, 56, 44, 0.18);
+      animation: rippleOut 0.55s ease-out forwards;
+      z-index: 20;
+    }
+
+    .click-feedback.ok {
+      border-color: var(--accent-green);
+      background: rgba(46, 125, 79, 0.2);
+    }
+
+    @keyframes rippleOut {
+      0% { transform: scale(0.4); opacity: 1; }
+      100% { transform: scale(1.65); opacity: 0; }
+    }
+
+    /* Slim Info Banner */
+    .info-banner {
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-vintage);
+      border-radius: 8px;
+      padding: 4px 10px;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: clamp(0.78rem, 0.96vw, 0.89rem);
+      font-weight: 600;
+      color: var(--ink-dark);
+      box-shadow: 0 2px 6px rgba(43, 33, 24, 0.06);
+      transition: background 0.25s, border-color 0.25s;
+    }
+
+    .info-banner.success {
+      background: #e9f6ee;
+      border-color: var(--accent-green);
+      color: #195131;
+    }
+
+    .info-banner.error {
+      background: #fceceb;
+      border-color: var(--accent-red);
+      color: #7b1e16;
+    }
+
+    /* Floating drag ghost */
+    .drag-ghost {
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
+      background: #e6f2fa;
+      border: 2px solid var(--accent-blue);
+      color: #153c54;
+      border-radius: 9px;
+      padding: 6px 11px;
+      font-weight: 800;
+      font-size: 0.84rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+      transform: translate(-50%, -50%) scale(1.06);
+    }
+
+    /* Modal Overlay */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(32, 24, 16, 0.62);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 500;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-panel);
+      border: 3px solid #9e8766;
+      border-radius: 18px;
+      max-width: 480px;
+      width: 100%;
+      padding: 24px 22px;
+      text-align: center;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      animation: popIn 0.25s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-emoji {
+      font-size: 2.8rem;
+      margin-bottom: 6px;
+    }
+
+    .modal-card h2 {
+      margin: 0 0 10px;
+      font-family: Georgia, serif;
+      font-size: 1.48rem;
+    }
+
+    .modal-card p {
+      margin: 0 0 18px;
+      color: var(--ink-muted);
+      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-primary {
+      appearance: none;
+      border: none;
+      background: var(--accent-blue);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.98rem;
+      padding: 11px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #1c4158;
+    }
+
+    .btn-primary:hover {
+      background: #24506b;
+    }
+
+    .btn-secondary {
+      appearance: none;
+      border: 2px solid var(--border-vintage);
+      background: #fff;
+      color: var(--ink-dark);
+      font-weight: 700;
+      font-size: 0.98rem;
+      padding: 9px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Portrait tablet fallback */
+    @media (max-width: 820px) {
+      .workspace {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+      }
+
+      .tableau-wrap {
+        grid-column: 1 / -1;
+        grid-row: 1;
+      }
+
+      #left-labels {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      #right-labels {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
+      svg#city-svg {
+        max-height: 68dvh;
+      }
+
+      .label-card {
+        padding: 6px 5px;
+        min-height: 32px;
+        font-size: 0.76rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Compact Top Header & Status Bar -->
+    <header class="topbar">
+      <div class="title-block">
+        <h1>A 20. század eleji fejlődő város</h1>
+        <span class="subtitle">Válassz egy címkét oldalt, majd kattints a helyére a tablón!</span>
+      </div>
+
+      <div class="hud">
+        <div class="active-prompt" id="active-prompt">
+          Keresendő: <span class="target-name" id="active-target-name">Villamos</span>
+        </div>
+
+        <div class="lives-box" aria-label="Hátralévő életek">
+          <span>Életek:</span>
+          <div class="hearts" id="hearts-container">
+            <svg class="heart" viewBox="0 0 24 24" fill="#c9362b"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <svg class="heart" viewBox="0 0 24 24" fill="#c9362b"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <svg class="heart" viewBox="0 0 24 24" fill="#c9362b"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </div>
+        </div>
+
+        <div class="progress-pill" id="progress-pill">0 / 10 kész</div>
+
+        <button class="btn-icon" id="sound-btn" title="Hang ki/be">🔊 Hang</button>
+        <button class="btn-icon" id="restart-btn" title="Újrakezdés">↻ Újra</button>
+      </div>
+    </header>
+
+    <!-- Main 2-Sided Label + Maximized Center Tableau -->
+    <main class="workspace">
+      <aside class="side-column" id="left-labels" aria-label="Bal oldali címkék"></aside>
+
+      <section class="tableau-wrap" id="tableau-wrap">
+        <!-- Tighter viewBox (0 44 1320 634) enlarges the city artwork cleanly -->
+        <svg id="city-svg" viewBox="0 44 1320 634" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="20. század eleji fejlődő város tablókép">
+          <defs>
+            <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#c6deec"/>
+              <stop offset="65%" stop-color="#e9f1f0"/>
+              <stop offset="100%" stop-color="#f6ebd6"/>
+            </linearGradient>
+            <linearGradient id="soilGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#6b4e38"/>
+              <stop offset="100%" stop-color="#473222"/>
+            </linearGradient>
+            <linearGradient id="waterGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#4e8999"/>
+              <stop offset="50%" stop-color="#65a6b7"/>
+              <stop offset="100%" stop-color="#4e8999"/>
+            </linearGradient>
+            <pattern id="cobblePattern" width="24" height="14" patternUnits="userSpaceOnUse">
+              <rect width="24" height="14" fill="#8f8578"/>
+              <rect x="1" y="1" width="10" height="5" rx="2" fill="#a29789"/>
+              <rect x="13" y="1" width="10" height="5" rx="2" fill="#9a8f81"/>
+              <rect x="7" y="8" width="10" height="5" rx="2" fill="#a79c8d"/>
+              <rect x="-5" y="8" width="10" height="5" rx="2" fill="#998e80"/>
+              <rect x="19" y="8" width="10" height="5" rx="2" fill="#998e80"/>
+            </pattern>
+            <pattern id="brickPattern" width="20" height="12" patternUnits="userSpaceOnUse">
+              <rect width="20" height="12" fill="#8f4533"/>
+              <rect x="1" y="1" width="8" height="4" fill="#a55440"/>
+              <rect x="11" y="1" width="8" height="4" fill="#9d4d3a"/>
+              <rect x="6" y="7" width="8" height="4" fill="#a85642"/>
+              <rect x="-4" y="7" width="8" height="4" fill="#994b38"/>
+              <rect x="16" y="7" width="8" height="4" fill="#994b38"/>
+            </pattern>
+          </defs>
+
+          <!-- Background Sky & Distant City Silhouette -->
+          <g id="background-layer">
+            <rect x="0" y="40" width="1320" height="390" fill="url(#skyGrad)"/>
+            <circle cx="165" cy="74" r="22" fill="#fdf1cb" opacity="0.82"/>
+            <g fill="#ffffff" opacity="0.72">
+              <ellipse cx="360" cy="72" rx="46" ry="13"/>
+              <ellipse cx="390" cy="66" rx="28" ry="11"/>
+              <ellipse cx="810" cy="76" rx="54" ry="14"/>
+              <ellipse cx="845" cy="69" rx="32" ry="11"/>
+              <ellipse cx="1145" cy="68" rx="40" ry="12"/>
+            </g>
+
+            <!-- Distant Skyline Silhouette -->
+            <g fill="#cbd3d6" opacity="0.65">
+              <rect x="190" y="265" width="44" height="155"/>
+              <polygon points="354,268 368,212 382,268"/>
+              <rect x="505" y="255" width="45" height="165"/>
+              <rect x="680" y="248" width="42" height="172"/>
+              <rect x="830" y="262" width="44" height="158"/>
+              <rect x="995" y="255" width="40" height="165"/>
+            </g>
+
+            <!-- Sidewalk & Boulevard Base -->
+            <rect x="0" y="408" width="1320" height="32" fill="#d9ceb8"/>
+            <line x1="0" y1="408" x2="1320" y2="408" stroke="#b3a48b" stroke-width="2"/>
+            <rect x="0" y="438" width="1320" height="5" fill="#9b8d77"/>
+
+            <!-- Roadway Cobblestones -->
+            <rect x="0" y="443" width="1320" height="97" fill="url(#cobblePattern)"/>
+
+            <!-- Railway Track Bed on Left (for Steam Locomotive) -->
+            <rect x="0" y="438" width="252" height="22" fill="#70665b"/>
+            <g fill="#4d3624">
+              <rect x="8" y="440" width="8" height="19"/><rect x="26" y="440" width="8" height="19"/>
+              <rect x="44" y="440" width="8" height="19"/><rect x="62" y="440" width="8" height="19"/>
+              <rect x="80" y="440" width="8" height="19"/><rect x="98" y="440" width="8" height="19"/>
+              <rect x="116" y="440" width="8" height="19"/><rect x="134" y="440" width="8" height="19"/>
+              <rect x="152" y="440" width="8" height="19"/><rect x="170" y="440" width="8" height="19"/>
+              <rect x="188" y="440" width="8" height="19"/><rect x="206" y="440" width="8" height="19"/>
+              <rect x="224" y="440" width="8" height="19"/><rect x="242" y="440" width="8" height="19"/>
+            </g>
+            <line x1="0" y1="444" x2="252" y2="444" stroke="#2c3034" stroke-width="3"/>
+            <line x1="0" y1="455" x2="252" y2="455" stroke="#2c3034" stroke-width="3"/>
+            <path d="M244,458 L252,438 L258,438 L258,458 Z" fill="#9c2e25" stroke="#222" stroke-width="1.5"/>
+
+            <!-- Street Tram Rails -->
+            <line x1="258" y1="472" x2="1320" y2="472" stroke="#5d574f" stroke-width="2.5"/>
+            <line x1="258" y1="480" x2="1320" y2="480" stroke="#5d574f" stroke-width="2.5"/>
+            <line x1="0" y1="518" x2="1320" y2="518" stroke="#514b43" stroke-width="3"/>
+            <line x1="0" y1="526" x2="1320" y2="526" stroke="#514b43" stroke-width="3"/>
+
+            <!-- Decorative Trees, Lamps & Period Pedestrians -->
+            <g id="street-decor">
+              <rect x="370" y="370" width="5" height="39" fill="#6b4b32"/>
+              <circle cx="372" cy="356" r="17" fill="#6f9259"/>
+              <rect x="696" y="368" width="5" height="41" fill="#6b4b32"/>
+              <circle cx="698" cy="353" r="18" fill="#6f9259"/>
+              <rect x="1012" y="370" width="5" height="39" fill="#6b4b32"/>
+              <circle cx="1014" cy="356" r="17" fill="#6f9259"/>
+
+              <g transform="translate(508,404)">
+                <circle cx="0" cy="0" r="3.8" fill="#e6be9a"/>
+                <rect x="-4" y="-6" width="8" height="3" fill="#2b2118"/>
+                <rect x="-6" y="-3" width="12" height="1.5" fill="#2b2118"/>
+                <path d="M-4,4 L4,4 L5,21 L-5,21 Z" fill="#3a332e"/>
+                <rect x="-3" y="21" width="2.2" height="9" fill="#2b2118"/>
+                <rect x="1" y="21" width="2.2" height="9" fill="#2b2118"/>
+              </g>
+              <g transform="translate(521,406)">
+                <circle cx="0" cy="0" r="3.6" fill="#e6be9a"/>
+                <ellipse cx="0" cy="-4" rx="7" ry="2" fill="#7a4c58"/>
+                <path d="M-4,4 L4,4 L7,26 L-7,26 Z" fill="#6a495c"/>
+              </g>
+              <g transform="translate(866,405)">
+                <circle cx="0" cy="0" r="3.8" fill="#e6be9a"/>
+                <rect x="-5" y="-4" width="10" height="2" fill="#222"/>
+                <rect x="-3.5" y="-8" width="7" height="4" fill="#222"/>
+                <path d="M-4,4 L4,4 L5,21 L-5,21 Z" fill="#46525c"/>
+                <rect x="-3" y="21" width="2.2" height="9" fill="#222"/>
+                <rect x="1" y="21" width="2.2" height="9" fill="#222"/>
+              </g>
+
+              <g stroke="#2e3133" stroke-width="2.5" fill="none">
+                <line x1="256" y1="434" x2="256" y2="370"/>
+                <line x1="848" y1="434" x2="848" y2="370"/>
+                <line x1="1225" y1="434" x2="1225" y2="370"/>
+              </g>
+              <circle cx="256" cy="366" r="4.5" fill="#fff2b3" stroke="#2e3133" stroke-width="1.8"/>
+              <circle cx="848" cy="366" r="4.5" fill="#fff2b3" stroke="#2e3133" stroke-width="1.8"/>
+              <circle cx="1225" cy="366" r="4.5" fill="#fff2b3" stroke="#2e3133" stroke-width="1.8"/>
+            </g>
+          </g>
+
+          <!-- TARGET 1: CSATORNAHÁLÓZAT (Underground Cutaway) -->
+          <g class="city-target" data-id="csatornahalozat">
+            <g class="target-highlight">
+              <rect x="0" y="540" width="1320" height="18" fill="#8b8173"/>
+              <rect x="0" y="558" width="1320" height="124" fill="url(#soilGrad)"/>
+              <g fill="#5b412e" opacity="0.7">
+                <circle cx="85" cy="576" r="3"/><circle cx="195" cy="586" r="4"/>
+                <circle cx="310" cy="574" r="3"/><circle cx="480" cy="580" r="4"/>
+                <circle cx="630" cy="573" r="3"/><circle cx="790" cy="585" r="4"/>
+                <circle cx="980" cy="575" r="3"/><circle cx="1190" cy="585" r="4"/>
+                <circle cx="160" cy="671" r="3"/><circle cx="595" cy="671" r="4"/>
+                <circle cx="1045" cy="671" r="3"/>
+              </g>
+              <rect x="330" y="534" width="26" height="6" fill="#2f3337"/>
+              <rect x="335" y="540" width="16" height="62" fill="#5e656b" stroke="#3c4146" stroke-width="2"/>
+              <rect x="748" y="534" width="26" height="6" fill="#2f3337"/>
+              <rect x="753" y="540" width="16" height="62" fill="#5e656b" stroke="#3c4146" stroke-width="2"/>
+              <rect x="1120" y="534" width="26" height="6" fill="#2f3337"/>
+              <rect x="1125" y="540" width="16" height="62" fill="#5e656b" stroke="#3c4146" stroke-width="2"/>
+
+              <rect x="30" y="594" width="1260" height="70" rx="14" fill="url(#brickPattern)" stroke="#3e241b" stroke-width="3"/>
+              <rect x="48" y="606" width="1224" height="46" rx="10" fill="#323a3f"/>
+              <path d="M150,652 L150,620 A20,16 0 0 1 190,620 L190,652 Z" fill="#23292d" stroke="#8f4533" stroke-width="3"/>
+              <path d="M560,652 L560,620 A20,16 0 0 1 600,620 L600,652 Z" fill="#23292d" stroke="#8f4533" stroke-width="3"/>
+              <path d="M970,652 L970,620 A20,16 0 0 1 1010,620 L1010,652 Z" fill="#23292d" stroke="#8f4533" stroke-width="3"/>
+              <path d="M48,634 Q94,629 140,634 T232,634 T324,634 T416,634 T508,634 T600,634 T692,634 T784,634 T876,634 T968,634 T1060,634 T1152,634 T1244,634 L1272,634 L1272,652 L48,652 Z" fill="url(#waterGrad)"/>
+              <line x1="343" y1="546" x2="343" y2="634" stroke="#65a6b7" stroke-width="4" stroke-dasharray="6 4"/>
+              <line x1="761" y1="546" x2="761" y2="634" stroke="#65a6b7" stroke-width="4" stroke-dasharray="6 4"/>
+              <line x1="1133" y1="546" x2="1133" y2="634" stroke="#65a6b7" stroke-width="4" stroke-dasharray="6 4"/>
+            </g>
+            <rect class="hit-area" x="0" y="542" width="1320" height="140"/>
+          </g>
+
+          <!-- VASÚTÁLLOMÁS -->
+          <g class="city-distractor" data-distractor="vasutallomas">
+            <g class="target-highlight">
+              <rect x="14" y="240" width="188" height="168" fill="#c97455" stroke="#85452e" stroke-width="2"/>
+              <rect x="14" y="226" width="188" height="14" fill="#e6d6bc" stroke="#99876c" stroke-width="1.5"/>
+              <path d="M44,240 A64,68 0 0 1 172,240 Z" fill="#9bc2d4" stroke="#455059" stroke-width="4"/>
+              <g stroke="#455059" stroke-width="2">
+                <line x1="108" y1="240" x2="108" y2="172"/>
+                <line x1="108" y1="240" x2="64" y2="188"/>
+                <line x1="108" y1="240" x2="152" y2="188"/>
+                <line x1="108" y1="240" x2="50" y2="215"/>
+                <line x1="108" y1="240" x2="166" y2="215"/>
+              </g>
+              <circle cx="108" cy="212" r="14" fill="#fffdf6" stroke="#3c342b" stroke-width="2.5"/>
+              <line x1="108" y1="212" x2="108" y2="203" stroke="#222" stroke-width="2"/>
+              <line x1="108" y1="212" x2="115" y2="215" stroke="#222" stroke-width="2"/>
+              <g fill="#7fa3b5" stroke="#f7eedc" stroke-width="2">
+                <rect x="26" y="256" width="22" height="42" rx="11"/>
+                <rect x="168" y="256" width="22" height="42" rx="11"/>
+              </g>
+              <rect x="64" y="264" width="88" height="106" rx="42" fill="#4f3728" stroke="#e6d6bc" stroke-width="3"/>
+              <rect x="74" y="280" width="68" height="90" rx="34" fill="#8bb2c4"/>
+              <polygon points="10,368 206,368 212,382 4,382" fill="#3a454d" stroke="#222" stroke-width="1.5"/>
+              <line x1="36" y1="382" x2="36" y2="408" stroke="#3a454d" stroke-width="4"/>
+              <line x1="180" y1="382" x2="180" y2="408" stroke="#3a454d" stroke-width="4"/>
+            </g>
+            <rect class="hit-area" x="10" y="170" width="198" height="232"/>
+          </g>
+
+          <!-- TARGET 2: KÓRHÁZ (Hospital) -->
+          <g class="city-target" data-id="korhaz">
+            <g class="target-highlight">
+              <polygon points="214,225 290,182 366,225" fill="#a85641" stroke="#633022" stroke-width="2"/>
+              <polygon points="260,225 290,192 320,225" fill="#f7f1e3" stroke="#b9ab92" stroke-width="2"/>
+              <rect x="218" y="225" width="144" height="183" fill="#f7f1e3" stroke="#b9ab92" stroke-width="2"/>
+              <rect x="218" y="388" width="144" height="20" fill="#dcd0ba"/>
+              <circle cx="290" cy="213" r="10" fill="#ffffff" stroke="#c9362b" stroke-width="1.5"/>
+              <rect x="287.5" y="206" width="5" height="14" fill="#c9362b"/>
+              <rect x="283" y="210.5" width="14" height="5" fill="#c9362b"/>
+              <line x1="290" y1="182" x2="290" y2="155" stroke="#5a4938" stroke-width="2.5"/>
+              <rect x="291" y="156" width="22" height="15" fill="#ffffff" stroke="#ccc" stroke-width="1"/>
+              <rect x="300" y="158.5" width="4" height="10" fill="#c9362b"/>
+              <rect x="297" y="161.5" width="10" height="4" fill="#c9362b"/>
+              <g fill="#6d8ea0" stroke="#fff" stroke-width="2">
+                <rect x="230" y="242" width="20" height="32" rx="10"/>
+                <rect x="258" y="242" width="20" height="32" rx="10"/>
+                <rect x="302" y="242" width="20" height="32" rx="10"/>
+                <rect x="330" y="242" width="20" height="32" rx="10"/>
+                <rect x="230" y="294" width="20" height="32" rx="10"/>
+                <rect x="258" y="294" width="20" height="32" rx="10"/>
+                <rect x="302" y="294" width="20" height="32" rx="10"/>
+                <rect x="330" y="294" width="20" height="32" rx="10"/>
+                <rect x="230" y="346" width="20" height="32"/>
+                <rect x="330" y="346" width="20" height="32"/>
+              </g>
+              <rect x="274" y="346" width="32" height="62" rx="4" fill="#70513a" stroke="#473222" stroke-width="2"/>
+              <rect x="267" y="340" width="46" height="8" fill="#e6dcc8" stroke="#b9ab92" stroke-width="1.5"/>
+            </g>
+            <rect class="hit-area" x="214" y="155" width="152" height="255"/>
+          </g>
+
+          <!-- TARGET 3: ISKOLA (School) -->
+          <g class="city-target" data-id="iskola">
+            <g class="target-highlight">
+              <rect x="434" y="156" width="24" height="34" fill="#c76e4a" stroke="#783d26" stroke-width="2"/>
+              <polygon points="430,156 446,134 462,156" fill="#4f5d6b" stroke="#2c353e" stroke-width="2"/>
+              <circle cx="446" cy="172" r="7.5" fill="#fffdf6" stroke="#4b3b2c" stroke-width="1.5"/>
+              <line x1="446" y1="172" x2="446" y2="167" stroke="#2b2118" stroke-width="1.5"/>
+              <line x1="446" y1="172" x2="450" y2="173" stroke="#2b2118" stroke-width="1.5"/>
+
+              <polygon points="376,220 398,188 494,188 516,220" fill="#526270" stroke="#2e3841" stroke-width="2"/>
+              <rect x="380" y="220" width="132" height="188" fill="#d9895b" stroke="#9e5934" stroke-width="2"/>
+              <rect x="380" y="220" width="132" height="10" fill="#efe2c8"/>
+              <rect x="380" y="388" width="132" height="20" fill="#b8a890"/>
+
+              <g fill="#dcecf2" stroke="#f7eedb" stroke-width="2.2">
+                <rect x="392" y="242" width="22" height="42"/>
+                <rect x="422" y="242" width="22" height="42"/>
+                <rect x="452" y="242" width="22" height="42"/>
+                <rect x="480" y="242" width="22" height="42"/>
+                <rect x="392" y="306" width="22" height="42"/>
+                <rect x="480" y="306" width="22" height="42"/>
+              </g>
+              <rect x="423" y="308" width="46" height="24" rx="3" fill="#f7eedb" stroke="#9e5934" stroke-width="1.5"/>
+              <path d="M434,325 Q440,321 446,325 Q452,321 458,325 L458,315 Q452,312 446,316 Q440,312 434,315 Z" fill="#ffffff" stroke="#3a5970" stroke-width="1.5"/>
+              <line x1="446" y1="316" x2="446" y2="325" stroke="#3a5970" stroke-width="1.5"/>
+              <rect x="429" y="346" width="34" height="58" rx="16" fill="#5e3a24" stroke="#f7eedb" stroke-width="2"/>
+              <line x1="446" y1="348" x2="446" y2="404" stroke="#382113" stroke-width="2"/>
+              <rect x="422" y="400" width="48" height="8" fill="#cfc3ae"/>
+            </g>
+            <rect class="hit-area" x="376" y="134" width="140" height="276"/>
+          </g>
+
+          <!-- TARGET 4: EMELETES LAKÓHÁZ (4-Story Residential Building) -->
+          <g class="city-target" data-id="emeletes-lakohaz">
+            <g class="target-highlight">
+              <polygon points="526,174 544,138 674,138 692,174" fill="#4f5c64" stroke="#2c353b" stroke-width="2"/>
+              <rect x="556" y="144" width="18" height="22" fill="#f0d9a8" stroke="#2c353b" stroke-width="1.5"/>
+              <rect x="600" y="144" width="18" height="22" fill="#f0d9a8" stroke="#2c353b" stroke-width="1.5"/>
+              <rect x="644" y="144" width="18" height="22" fill="#f0d9a8" stroke="#2c353b" stroke-width="1.5"/>
+              <rect x="560" y="148" width="10" height="14" fill="#82a5b8"/>
+              <rect x="604" y="148" width="10" height="14" fill="#82a5b8"/>
+              <rect x="648" y="148" width="10" height="14" fill="#82a5b8"/>
+
+              <rect x="530" y="174" width="158" height="234" fill="#e6c37a" stroke="#aa8743" stroke-width="2"/>
+              <line x1="530" y1="230" x2="688" y2="230" stroke="#c7a359" stroke-width="3"/>
+              <line x1="530" y1="288" x2="688" y2="288" stroke="#c7a359" stroke-width="3"/>
+              <line x1="530" y1="346" x2="688" y2="346" stroke="#b38e47" stroke-width="4"/>
+
+              <g fill="#7394a8" stroke="#fbf1db" stroke-width="2">
+                <rect x="544" y="188" width="18" height="32"/>
+                <rect x="578" y="188" width="18" height="32"/>
+                <rect x="622" y="188" width="18" height="32"/>
+                <rect x="656" y="188" width="18" height="32"/>
+                <rect x="544" y="244" width="18" height="32"/>
+                <rect x="578" y="244" width="18" height="32"/>
+                <rect x="622" y="244" width="18" height="32"/>
+                <rect x="656" y="244" width="18" height="32"/>
+                <rect x="544" y="302" width="18" height="32"/>
+                <rect x="578" y="302" width="18" height="32"/>
+                <rect x="622" y="302" width="18" height="32"/>
+                <rect x="656" y="302" width="18" height="32"/>
+              </g>
+              <rect x="580" y="190" width="14" height="28" fill="#f7df94" opacity="0.65"/>
+              <rect x="624" y="246" width="14" height="28" fill="#f7df94" opacity="0.65"/>
+              <rect x="546" y="304" width="14" height="28" fill="#f7df94" opacity="0.55"/>
+
+              <rect x="572" y="264" width="74" height="18" fill="none" stroke="#2d2b29" stroke-width="2.2"/>
+              <line x1="586" y1="264" x2="586" y2="282" stroke="#2d2b29" stroke-width="1.5"/>
+              <line x1="602" y1="264" x2="602" y2="282" stroke="#2d2b29" stroke-width="1.5"/>
+              <line x1="618" y1="264" x2="618" y2="282" stroke="#2d2b29" stroke-width="1.5"/>
+              <line x1="634" y1="264" x2="634" y2="282" stroke="#2d2b29" stroke-width="1.5"/>
+              <rect x="578" y="274" width="22" height="7" fill="#7c4732"/>
+              <circle cx="584" cy="272" r="3" fill="#c94b4b"/><circle cx="592" cy="271" r="3" fill="#e67e51"/>
+              <rect x="620" y="274" width="22" height="7" fill="#7c4732"/>
+              <circle cx="626" cy="272" r="3" fill="#e67e51"/><circle cx="634" cy="271" r="3" fill="#c94b4b"/>
+
+              <rect x="595" y="356" width="28" height="52" rx="12" fill="#4f3524" stroke="#fbf1db" stroke-width="2"/>
+              <rect x="540" y="364" width="44" height="44" fill="#688596" stroke="#473322" stroke-width="2"/>
+              <rect x="634" y="364" width="44" height="44" fill="#688596" stroke="#473322" stroke-width="2"/>
+            </g>
+            <rect class="hit-area" x="526" y="138" width="166" height="272"/>
+          </g>
+
+          <!-- KÁVÉZÓ -->
+          <g class="city-distractor" data-distractor="kavezo">
+            <g class="target-highlight">
+              <polygon points="704,238 718,210 828,210 842,238" fill="#5e4347" stroke="#362427" stroke-width="2"/>
+              <rect x="748" y="200" width="50" height="16" rx="4" fill="#f3dfc1" stroke="#9e7f56" stroke-width="1.5"/>
+              <rect x="708" y="238" width="130" height="170" fill="#f5e6cf" stroke="#b59770" stroke-width="2"/>
+              <g fill="#7394a8" stroke="#fff" stroke-width="2">
+                <rect x="724" y="256" width="22" height="34" rx="11"/>
+                <rect x="762" y="256" width="22" height="34" rx="11"/>
+                <rect x="800" y="256" width="22" height="34" rx="11"/>
+              </g>
+              <rect x="716" y="324" width="52" height="84" rx="8" fill="#ffd98a" stroke="#5c3620" stroke-width="2.5"/>
+              <rect x="778" y="324" width="52" height="84" rx="8" fill="#5c3620" stroke="#f5e6cf" stroke-width="2"/>
+              <rect x="786" y="334" width="36" height="46" rx="6" fill="#ffd98a"/>
+              <polygon points="704,328 842,328 850,350 696,350" fill="#9c2f3b" stroke="#5e1820" stroke-width="1.5"/>
+              <g fill="#fff5e4">
+                <polygon points="722,328 738,328 736,350 718,350"/>
+                <polygon points="754,328 770,328 770,350 754,350"/>
+                <polygon points="786,328 802,328 804,350 788,350"/>
+                <polygon points="818,328 834,328 838,350 822,350"/>
+              </g>
+              <line x1="773" y1="306" x2="773" y2="320" stroke="#2d2620" stroke-width="2"/>
+              <circle cx="773" cy="306" r="11" fill="#3a261a" stroke="#d9a83e" stroke-width="1.5"/>
+              <path d="M767,305 L777,305 L775,311 L769,311 Z" fill="#fff7e6"/>
+              <path d="M777,306 Q780,307 777,310" fill="none" stroke="#fff7e6" stroke-width="1.3"/>
+              <g>
+                <line x1="734" y1="408" x2="734" y2="424" stroke="#2e2a27" stroke-width="2.5"/>
+                <ellipse cx="734" cy="408" rx="13" ry="4" fill="#ffffff" stroke="#857561" stroke-width="1.2"/>
+                <rect x="730" y="402" width="4" height="4" fill="#f5f5f5" stroke="#555" stroke-width="0.8"/>
+                <rect x="716" y="405" width="7" height="17" fill="none" stroke="#4a382b" stroke-width="1.8"/>
+                <rect x="745" y="405" width="7" height="17" fill="none" stroke="#4a382b" stroke-width="1.8"/>
+                <line x1="812" y1="408" x2="812" y2="424" stroke="#2e2a27" stroke-width="2.5"/>
+                <ellipse cx="812" cy="408" rx="13" ry="4" fill="#ffffff" stroke="#857561" stroke-width="1.2"/>
+                <rect x="810" y="402" width="4" height="4" fill="#f5f5f5" stroke="#555" stroke-width="0.8"/>
+                <rect x="794" y="405" width="7" height="17" fill="none" stroke="#4a382b" stroke-width="1.8"/>
+                <rect x="823" y="405" width="7" height="17" fill="none" stroke="#4a382b" stroke-width="1.8"/>
+              </g>
+            </g>
+            <rect class="hit-area" x="702" y="200" width="142" height="228"/>
+          </g>
+
+          <!-- TARGET 5: POSTA (Post Office) -->
+          <g class="city-target" data-id="posta">
+            <g class="target-highlight">
+              <path d="M902,186 Q931,134 960,186 Z" fill="#5e9482" stroke="#375d50" stroke-width="2"/>
+              <line x1="931" y1="142" x2="931" y2="124" stroke="#b3882b" stroke-width="2.5"/>
+              <circle cx="931" cy="136" r="4" fill="#d9a83e"/>
+
+              <polygon points="852,218 868,186 994,186 1010,218" fill="#9c4f3d" stroke="#622e22" stroke-width="2"/>
+              <rect x="856" y="218" width="150" height="190" fill="#e9cbb0" stroke="#b28c6e" stroke-width="2"/>
+              <rect x="856" y="388" width="150" height="20" fill="#cab198"/>
+
+              <g fill="#7392a6" stroke="#fff7ec" stroke-width="2">
+                <rect x="868" y="236" width="22" height="34" rx="11"/>
+                <rect x="902" y="236" width="22" height="34" rx="11"/>
+                <rect x="938" y="236" width="22" height="34" rx="11"/>
+                <rect x="972" y="236" width="22" height="34" rx="11"/>
+              </g>
+              <rect x="897" y="286" width="68" height="34" rx="6" fill="#2d5f46" stroke="#d9a83e" stroke-width="2"/>
+              <g fill="none" stroke="#f2c44e" stroke-width="2.8" stroke-linecap="round">
+                <path d="M909,303 C915,292 947,292 953,303"/>
+                <circle cx="931" cy="306" r="6.5"/>
+                <polygon points="906,300 912,307 904,308" fill="#f2c44e" stroke="none"/>
+              </g>
+              <rect x="914" y="340" width="34" height="68" rx="15" fill="#5e3c26" stroke="#fff7ec" stroke-width="2"/>
+              <rect x="868" y="338" width="34" height="42" rx="8" fill="#7392a6" stroke="#fff7ec" stroke-width="2"/>
+              <rect x="960" y="338" width="34" height="42" rx="8" fill="#7392a6" stroke="#fff7ec" stroke-width="2"/>
+              <rect x="954" y="378" width="13" height="21" rx="2" fill="#c9362b" stroke="#751d17" stroke-width="1.5"/>
+              <rect x="956" y="382" width="9" height="3" fill="#2b2118"/>
+            </g>
+            <rect class="hit-area" x="852" y="124" width="158" height="286"/>
+          </g>
+
+          <!-- TARGET 6: BANK (Neoclassical Bank) -->
+          <g class="city-target" data-id="bank">
+            <g class="target-highlight">
+              <rect x="1020" y="190" width="204" height="16" fill="#cfc7b8" stroke="#8e8575" stroke-width="2"/>
+              <polygon points="1032,190 1122,146 1212,190" fill="#dfd8ca" stroke="#8e8575" stroke-width="2"/>
+              <polygon points="1056,184 1122,154 1188,184" fill="#c9c0ae"/>
+              <circle cx="1122" cy="172" r="9.5" fill="#d9a83e" stroke="#8a6518" stroke-width="1.5"/>
+              <line x1="1122" y1="166" x2="1122" y2="178" stroke="#8a6518" stroke-width="2"/>
+
+              <rect x="1024" y="206" width="196" height="202" fill="#e5dfd2" stroke="#999080" stroke-width="2"/>
+              <g fill="#5b6973" stroke="#999080" stroke-width="2">
+                <rect x="1034" y="328" width="24" height="42"/>
+                <rect x="1186" y="328" width="24" height="42"/>
+                <rect x="1034" y="232" width="24" height="52"/>
+                <rect x="1186" y="232" width="24" height="52"/>
+              </g>
+              <g stroke="#2c3135" stroke-width="1.5">
+                <line x1="1041" y1="328" x2="1041" y2="370"/><line x1="1046" y1="328" x2="1046" y2="370"/><line x1="1051" y1="328" x2="1051" y2="370"/>
+                <line x1="1193" y1="328" x2="1193" y2="370"/><line x1="1198" y1="328" x2="1198" y2="370"/><line x1="1203" y1="328" x2="1203" y2="370"/>
+              </g>
+              <g fill="#f2ede1" stroke="#9c9382" stroke-width="1.5">
+                <rect x="1068" y="206" width="14" height="186"/>
+                <rect x="1094" y="206" width="14" height="186"/>
+                <rect x="1136" y="206" width="14" height="186"/>
+                <rect x="1162" y="206" width="14" height="186"/>
+                <rect x="1065" y="206" width="20" height="8"/>
+                <rect x="1091" y="206" width="20" height="8"/>
+                <rect x="1133" y="206" width="20" height="8"/>
+                <rect x="1159" y="206" width="20" height="8"/>
+              </g>
+              <rect x="1109" y="320" width="26" height="72" rx="12" fill="#4f4335" stroke="#b59449" stroke-width="2"/>
+              <line x1="1122" y1="322" x2="1122" y2="392" stroke="#b59449" stroke-width="1.5"/>
+              <rect x="1058" y="392" width="128" height="6" fill="#cfc7b8" stroke="#999080"/>
+              <rect x="1052" y="398" width="140" height="6" fill="#c3baa9" stroke="#999080"/>
+              <rect x="1046" y="404" width="152" height="6" fill="#b7ae9d" stroke="#999080"/>
+            </g>
+            <rect class="hit-area" x="1020" y="146" width="204" height="264"/>
+          </g>
+
+          <!-- GYÁR -->
+          <g class="city-distractor" data-distractor="gyar">
+            <g class="target-highlight">
+              <polygon points="1270,275 1276,145 1292,145 1298,275" fill="#9c4a38" stroke="#5c281c" stroke-width="2"/>
+              <rect x="1274" y="142" width="20" height="6" fill="#4f2319"/>
+              <g fill="#d5dce0" opacity="0.8">
+                <circle cx="1290" cy="130" r="8"/>
+                <circle cx="1302" cy="118" r="11"/>
+                <circle cx="1313" cy="108" r="9"/>
+              </g>
+              <polygon points="1234,274 1234,244 1270,274 1270,244 1308,274" fill="#525d66" stroke="#2c3338" stroke-width="2"/>
+              <rect x="1234" y="274" width="76" height="134" fill="#a8533f" stroke="#662e21" stroke-width="2"/>
+              <g fill="#5b6d7a" stroke="#d9c6b0" stroke-width="1.5">
+                <rect x="1244" y="292" width="16" height="32"/>
+                <rect x="1266" y="292" width="16" height="32"/>
+                <rect x="1288" y="292" width="14" height="32"/>
+              </g>
+              <rect x="1254" y="352" width="34" height="56" fill="#4d3d33" stroke="#2c211b" stroke-width="2"/>
+            </g>
+            <rect class="hit-area" x="1232" y="140" width="82" height="270"/>
+          </g>
+
+          <!-- TARGET 7: VILLANYVEZETÉKEK (Utility Poles & Wires) -->
+          <g class="city-target" data-id="villanyvezetekek">
+            <g class="target-highlight">
+              <g stroke="#36322d" fill="#46413b">
+                <rect x="206" y="84" width="6" height="334"/>
+                <rect x="196" y="94" width="26" height="4"/>
+                <rect x="198" y="110" width="22" height="4"/>
+
+                <rect x="369" y="84" width="6" height="334"/>
+                <rect x="359" y="94" width="26" height="4"/>
+                <rect x="361" y="110" width="22" height="4"/>
+
+                <rect x="519" y="84" width="6" height="334"/>
+                <rect x="509" y="94" width="26" height="4"/>
+                <rect x="511" y="110" width="22" height="4"/>
+                <rect x="514" y="130" width="15" height="22" rx="2" fill="#525a61" stroke="#222" stroke-width="1.5"/>
+
+                <rect x="695" y="84" width="6" height="334"/>
+                <rect x="685" y="94" width="26" height="4"/>
+                <rect x="687" y="110" width="22" height="4"/>
+
+                <rect x="845" y="84" width="6" height="334"/>
+                <rect x="835" y="94" width="26" height="4"/>
+                <rect x="837" y="110" width="22" height="4"/>
+
+                <rect x="1011" y="84" width="6" height="334"/>
+                <rect x="1001" y="94" width="26" height="4"/>
+                <rect x="1003" y="110" width="22" height="4"/>
+
+                <rect x="1225" y="84" width="6" height="334"/>
+                <rect x="1215" y="94" width="26" height="4"/>
+                <rect x="1217" y="110" width="22" height="4"/>
+              </g>
+              <g fill="#f8fbff" stroke="#5c7080" stroke-width="1">
+                <circle cx="200" cy="92" r="2.8"/><circle cx="209" cy="92" r="2.8"/><circle cx="218" cy="92" r="2.8"/>
+                <circle cx="363" cy="92" r="2.8"/><circle cx="372" cy="92" r="2.8"/><circle cx="381" cy="92" r="2.8"/>
+                <circle cx="513" cy="92" r="2.8"/><circle cx="522" cy="92" r="2.8"/><circle cx="531" cy="92" r="2.8"/>
+                <circle cx="689" cy="92" r="2.8"/><circle cx="698" cy="92" r="2.8"/><circle cx="707" cy="92" r="2.8"/>
+                <circle cx="839" cy="92" r="2.8"/><circle cx="848" cy="92" r="2.8"/><circle cx="857" cy="92" r="2.8"/>
+                <circle cx="1005" cy="92" r="2.8"/><circle cx="1014" cy="92" r="2.8"/><circle cx="1023" cy="92" r="2.8"/>
+                <circle cx="1219" cy="92" r="2.8"/><circle cx="1228" cy="92" r="2.8"/><circle cx="1237" cy="92" r="2.8"/>
+              </g>
+              <g fill="none" stroke="#23272b" stroke-width="2">
+                <path d="M0,98 Q100,112 200,92 Q281,112 363,92 Q438,112 513,92 Q601,112 689,92 Q764,112 839,92 Q922,112 1005,92 Q1112,112 1219,92 Q1270,106 1320,96"/>
+                <path d="M0,104 Q104,118 209,92 Q290,118 372,92 Q447,118 522,92 Q610,118 698,92 Q773,118 848,92 Q931,118 1014,92 Q1121,118 1228,92 Q1276,110 1320,102"/>
+                <path d="M0,114 Q102,128 202,110 Q282,128 365,110 Q440,128 515,110 Q603,128 691,110 Q766,128 841,110 Q924,128 1007,110 Q1114,128 1221,110 Q1272,124 1320,114"/>
+              </g>
+            </g>
+            <rect class="hit-area" x="0" y="76" width="1320" height="58"/>
+            <rect class="hit-area" x="198" y="130" width="20" height="278"/>
+            <rect class="hit-area" x="361" y="130" width="20" height="278"/>
+            <rect class="hit-area" x="511" y="130" width="22" height="278"/>
+            <rect class="hit-area" x="687" y="130" width="20" height="278"/>
+            <rect class="hit-area" x="837" y="130" width="20" height="278"/>
+            <rect class="hit-area" x="1003" y="130" width="20" height="278"/>
+            <rect class="hit-area" x="1217" y="130" width="20" height="278"/>
+          </g>
+
+          <!-- GŐZMOZDONY -->
+          <g class="city-distractor" data-distractor="gozmozdony">
+            <g class="target-highlight">
+              <g fill="#f5f8fa" opacity="0.88">
+                <circle cx="176" cy="390" r="9"/>
+                <circle cx="163" cy="380" r="12"/>
+                <circle cx="145" cy="372" r="14"/>
+                <circle cx="122" cy="368" r="11"/>
+              </g>
+              <rect x="16" y="422" width="46" height="28" rx="3" fill="#2c3135" stroke="#141618" stroke-width="1.8"/>
+              <polygon points="18,422 26,412 54,412 60,422" fill="#1d1f21"/>
+              <circle cx="29" cy="452" r="7" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <circle cx="49" cy="452" r="7" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <rect x="64" y="405" width="38" height="45" fill="#262b2e" stroke="#141618" stroke-width="1.8"/>
+              <path d="M60,405 L106,405 L102,398 L64,398 Z" fill="#181b1d"/>
+              <rect x="74" y="411" width="16" height="14" rx="2" fill="#ffd98a" stroke="#141618" stroke-width="1.5"/>
+              <rect x="102" y="416" width="88" height="28" rx="4" fill="#32373b" stroke="#141618" stroke-width="1.8"/>
+              <line x1="126" y1="416" x2="126" y2="444" stroke="#d4a43b" stroke-width="2"/>
+              <line x1="154" y1="416" x2="154" y2="444" stroke="#d4a43b" stroke-width="2"/>
+              <path d="M134,416 A10,12 0 0 1 150,416 Z" fill="#d9aa43" stroke="#7d5c16" stroke-width="1.5"/>
+              <polygon points="170,416 172,394 182,394 184,416" fill="#212529" stroke="#111" stroke-width="1.5"/>
+              <rect x="169" y="391" width="16" height="4" fill="#d4a43b"/>
+              <circle cx="192" cy="426" r="4.5" fill="#fff6b8" stroke="#8f6714" stroke-width="1.5"/>
+              <polygon points="190,444 210,456 190,456" fill="#42484d" stroke="#1d2022" stroke-width="1.5"/>
+              <circle cx="84" cy="451" r="8" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <circle cx="120" cy="448" r="11" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <circle cx="148" cy="448" r="11" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <circle cx="176" cy="452" r="7" fill="#9c2e25" stroke="#222" stroke-width="2"/>
+              <line x1="114" y1="450" x2="154" y2="450" stroke="#d8dee3" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            <rect class="hit-area" x="14" y="390" width="198" height="70"/>
+          </g>
+
+          <!-- TARGET 8: LÓVASÚT (Horse-drawn Tram) -->
+          <g class="city-target" data-id="lovasut">
+            <g class="target-highlight">
+              <rect x="276" y="424" width="124" height="46" rx="5" fill="#f3e6c8" stroke="#664026" stroke-width="2"/>
+              <rect x="276" y="450" width="124" height="20" fill="#824628"/>
+              <path d="M270,424 Q338,415 406,424 L400,428 L276,428 Z" fill="#5e3e29" stroke="#3b2517" stroke-width="1.5"/>
+              <g fill="#a3c4d4" stroke="#664026" stroke-width="1.5">
+                <rect x="292" y="431" width="17" height="16" rx="2"/>
+                <rect x="315" y="431" width="17" height="16" rx="2"/>
+                <rect x="338" y="431" width="17" height="16" rx="2"/>
+                <rect x="361" y="431" width="17" height="16" rx="2"/>
+              </g>
+              <rect x="392" y="446" width="14" height="24" fill="#6e3c23"/>
+              <circle cx="399" cy="431" r="4" fill="#e6be9a"/>
+              <rect x="395" y="425" width="9" height="3" fill="#2c353d"/>
+              <rect x="395" y="435" width="8" height="12" fill="#32414f"/>
+              <circle cx="302" cy="472" r="7" fill="#3a3d40" stroke="#1e2022" stroke-width="2"/>
+              <circle cx="372" cy="472" r="7" fill="#3a3d40" stroke="#1e2022" stroke-width="2"/>
+              <line x1="401" y1="440" x2="471" y2="438" stroke="#472c1a" stroke-width="1.5"/>
+              <line x1="406" y1="458" x2="441" y2="452" stroke="#472c1a" stroke-width="2"/>
+              <g transform="translate(422,435)" fill="#5c3923" stroke="#382112" stroke-width="1.2">
+                <ellipse cx="22" cy="18" rx="19" ry="9"/>
+                <path d="M36,15 L47,3 L54,5 L52,12 L42,20 Z"/>
+                <rect x="8" y="24" width="4" height="16"/><rect x="16" y="24" width="4" height="16"/>
+                <rect x="28" y="24" width="4" height="16"/><rect x="35" y="24" width="4" height="16"/>
+              </g>
+              <g transform="translate(440,437)" fill="#855130" stroke="#472814" stroke-width="1.2">
+                <ellipse cx="22" cy="18" rx="20" ry="9.5"/>
+                <path d="M37,15 L49,2 L57,5 L54,12 L43,21 Z"/>
+                <path d="M2,16 Q-5,22 -3,31" fill="none" stroke="#2c190c" stroke-width="3"/>
+                <rect x="8" y="24" width="4" height="16"/><rect x="16" y="24" width="4" height="16"/>
+                <rect x="29" y="24" width="4" height="16"/><rect x="36" y="24" width="4" height="16"/>
+              </g>
+            </g>
+            <rect class="hit-area" x="268" y="414" width="234" height="68"/>
+          </g>
+
+          <!-- TARGET 9: SZEMÉLYGÉPKOCSI (Early Automobile) -->
+          <g class="city-target" data-id="szemelygepkocsi">
+            <g class="target-highlight">
+              <path d="M1074,448 L1106,426 L1114,432 L1096,452 Z" fill="#453f39" stroke="#25211d" stroke-width="1.5"/>
+              <path d="M956,454 L972,450 L982,434 L1020,434 L1026,448 L1098,448 L1106,468 L954,468 Z" fill="#2d543e" stroke="#183022" stroke-width="2"/>
+              <rect x="960" y="446" width="46" height="20" rx="2" fill="#37664c" stroke="#183022" stroke-width="1.5"/>
+              <rect x="954" y="445" width="8" height="22" rx="2" fill="#d9aa43" stroke="#856216" stroke-width="1.5"/>
+              <circle cx="955" cy="442" r="5" fill="#fff2ad" stroke="#b38422" stroke-width="2"/>
+              <line x1="1016" y1="446" x2="1024" y2="427" stroke="#b38422" stroke-width="2.5"/>
+              <line x1="1024" y1="448" x2="1034" y2="439" stroke="#222" stroke-width="2"/>
+              <circle cx="1048" cy="432" r="5.5" fill="#e6be9a"/>
+              <rect x="1042" y="425" width="12" height="3.5" rx="1.5" fill="#5e4b3c"/>
+              <rect x="1043" y="430" width="7" height="3" fill="#3a454d"/>
+              <path d="M1042,438 L1055,438 L1058,449 L1038,449 Z" fill="#6b5644"/>
+              <path d="M952,464 Q978,446 1002,468" fill="none" stroke="#1e2420" stroke-width="4"/>
+              <path d="M1056,468 Q1080,446 1106,466" fill="none" stroke="#1e2420" stroke-width="4"/>
+              <g stroke="#2a241e" stroke-width="4" fill="#c99e57">
+                <circle cx="978" cy="468" r="12"/>
+                <circle cx="1082" cy="468" r="12"/>
+              </g>
+              <g stroke="#5e4421" stroke-width="1.5">
+                <line x1="968" y1="468" x2="988" y2="468"/><line x1="978" y1="458" x2="978" y2="478"/>
+                <line x1="1072" y1="468" x2="1092" y2="468"/><line x1="1082" y1="458" x2="1082" y2="478"/>
+              </g>
+              <circle cx="978" cy="468" r="3" fill="#d9aa43"/>
+              <circle cx="1082" cy="468" r="3" fill="#d9aa43"/>
+            </g>
+            <rect class="hit-area" x="946" y="422" width="172" height="62"/>
+          </g>
+
+          <!-- TARGET 10: VILLAMOS (Electric Tram) -->
+          <g class="city-target" data-id="villamos">
+            <g class="target-highlight">
+              <line x1="410" y1="406" x2="910" y2="406" stroke="#424a52" stroke-width="1.5" stroke-dasharray="6 3"/>
+              <path d="M645,438 L662,406 L679,438" fill="none" stroke="#2c3238" stroke-width="3"/>
+              <line x1="650" y1="406" x2="674" y2="406" stroke="#2c3238" stroke-width="3"/>
+
+              <rect x="582" y="432" width="160" height="10" rx="4" fill="#f5ecd5" stroke="#7d6431" stroke-width="1.5"/>
+              <rect x="640" y="425" width="44" height="9" rx="2" fill="#2d4c63" stroke="#fff" stroke-width="1"/>
+
+              <rect x="554" y="442" width="216" height="68" rx="8" fill="#f0b62b" stroke="#8f640d" stroke-width="2"/>
+              <rect x="554" y="446" width="216" height="32" fill="#fbf3dc"/>
+              <rect x="554" y="478" width="216" height="5" fill="#9e6d10"/>
+              <g fill="#8ab3c4" stroke="#7a5614" stroke-width="2">
+                <rect x="564" y="450" width="20" height="24" rx="2"/>
+                <rect x="594" y="450" width="26" height="24" rx="2"/>
+                <rect x="628" y="450" width="26" height="24" rx="2"/>
+                <rect x="662" y="450" width="26" height="24" rx="2"/>
+                <rect x="696" y="450" width="26" height="24" rx="2"/>
+                <rect x="732" y="450" width="28" height="24" rx="2"/>
+              </g>
+              <circle cx="607" cy="462" r="4" fill="#3a4a54"/>
+              <circle cx="675" cy="462" r="4" fill="#4f3d47"/>
+              <circle cx="744" cy="462" r="4" fill="#2c353d"/>
+              <circle cx="554" cy="492" r="5" fill="#fff7b8" stroke="#8f640d" stroke-width="1.5"/>
+              <circle cx="770" cy="492" r="5" fill="#fff7b8" stroke="#8f640d" stroke-width="1.5"/>
+              <rect x="562" y="508" width="200" height="7" fill="#3a3d40"/>
+              <circle cx="596" cy="518" r="9" fill="#2b2e30" stroke="#5a6065" stroke-width="2"/>
+              <circle cx="626" cy="518" r="9" fill="#2b2e30" stroke="#5a6065" stroke-width="2"/>
+              <circle cx="698" cy="518" r="9" fill="#2b2e30" stroke="#5a6065" stroke-width="2"/>
+              <circle cx="728" cy="518" r="9" fill="#2b2e30" stroke="#5a6065" stroke-width="2"/>
+            </g>
+            <rect class="hit-area" x="550" y="432" width="224" height="98"/>
+            <rect class="hit-area" x="638" y="404" width="48" height="32"/>
+          </g>
+
+          <!-- Layer for Placed Labels After Discovery -->
+          <g id="pins-layer"></g>
+        </svg>
+      </section>
+
+      <aside class="side-column" id="right-labels" aria-label="Jobb oldali címkék"></aside>
+    </main>
+
+    <!-- Slim Bottom Feedback / Historical Context Banner -->
+    <footer class="info-banner" id="info-banner">
+      Keresd meg a 20. század eleji fejlődő város 10 újszerű elemét a tablón!
+    </footer>
+  </div>
+
+  <!-- Game Over / Victory Modal -->
+  <div class="modal-backdrop" id="end-modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-emoji" id="modal-emoji">🏆</div>
+      <h2 id="modal-title">Gratulálunk!</h2>
+      <p id="modal-message"></p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="modal-restart-btn">Új játék</button>
+        <button class="btn-secondary" id="modal-reveal-btn">Megoldás megtekintése</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const ITEMS = [
+        {
+          id: "villamos",
+          name: "Villamos",
+          side: "left",
+          pinX: 662,
+          pinY: 472,
+          fact: "A villamos gyors, pontos és tiszta tömegközlekedést biztosított a növekvő város lakóinak."
+        },
+        {
+          id: "korhaz",
+          name: "Kórház",
+          side: "left",
+          pinX: 290,
+          pinY: 295,
+          fact: "A korszerű kórházak fejlődő orvostudománnyal és tisztább körülményekkel védték a lakosság egészségét."
+        },
+        {
+          id: "villanyvezetekek",
+          name: "Villanyvezetékek",
+          side: "left",
+          pinX: 610,
+          pinY: 105,
+          fact: "A villanyvezetékek hálózata elhozta az elektromos világítást az utcákra, gyárakba és otthonokba."
+        },
+        {
+          id: "emeletes-lakohaz",
+          name: "Emeletes lakóház",
+          side: "left",
+          pinX: 609,
+          pinY: 238,
+          fact: "A többemeletes bérházakban sok család kapott lakást a városba áramló népesség számára."
+        },
+        {
+          id: "csatornahalozat",
+          name: "Csatornahálózat",
+          side: "left",
+          pinX: 660,
+          pinY: 628,
+          fact: "A föld alatti csatornahálózat elvezette a szenny- és esővizet, jelentősen javítva a város higiéniáját."
+        },
+        {
+          id: "lovasut",
+          name: "Lóvasút",
+          side: "right",
+          pinX: 382,
+          pinY: 446,
+          fact: "A lóvasút a villamos elődje volt: síneken futó kocsikat lovak húztak a városi utcákon."
+        },
+        {
+          id: "bank",
+          name: "Bank",
+          side: "right",
+          pinX: 1122,
+          pinY: 280,
+          fact: "A bankok finanszírozták az új gyárakat, építkezéseket és a város modernizációját."
+        },
+        {
+          id: "posta",
+          name: "Posta",
+          side: "right",
+          pinX: 931,
+          pinY: 303,
+          fact: "A posta biztosította a gyors levél-, csomag- és távíróforgalmat a polgárok és hivatalok között."
+        },
+        {
+          id: "iskola",
+          name: "Iskola",
+          side: "right",
+          pinX: 446,
+          pinY: 285,
+          fact: "A modern iskolákban egyre több gyermek sajátíthatta el az írást, olvasást és a korszerű ismereteket."
+        },
+        {
+          id: "szemelygepkocsi",
+          name: "Személygépkocsi",
+          side: "right",
+          pinX: 1034,
+          pinY: 454,
+          fact: "A korai automobilok a modern technika szimbólumaként jelentek meg a lovas kocsik mellett."
+        }
+      ];
+
+      const DISTRACTORS = {
+        vasutallomas: "vasútállomás",
+        gozmozdony: "gőzmozdony",
+        kavezo: "kávézó",
+        gyar: "gyárépület"
+      };
+
+      const MAX_LIVES = 3;
+      let lives = MAX_LIVES;
+      let foundIds = new Set();
+      let activeId = ITEMS[0].id;
+      let gameOver = false;
+      let soundEnabled = true;
+      let audioCtx = null;
+
+      const leftCol = document.getElementById("left-labels");
+      const rightCol = document.getElementById("right-labels");
+      const citySvg = document.getElementById("city-svg");
+      const tableauWrap = document.getElementById("tableau-wrap");
+      const pinsLayer = document.getElementById("pins-layer");
+      const activeTargetName = document.getElementById("active-target-name");
+      const activePromptBox = document.getElementById("active-prompt");
+      const progressPill = document.getElementById("progress-pill");
+      const infoBanner = document.getElementById("info-banner");
+      const heartsContainer = document.getElementById("hearts-container");
+      const soundBtn = document.getElementById("sound-btn");
+      const restartBtn = document.getElementById("restart-btn");
+      const endModal = document.getElementById("end-modal");
+      const modalEmoji = document.getElementById("modal-emoji");
+      const modalTitle = document.getElementById("modal-title");
+      const modalMessage = document.getElementById("modal-message");
+      const modalRestartBtn = document.getElementById("modal-restart-btn");
+      const modalRevealBtn = document.getElementById("modal-reveal-btn");
+
+      function playTone(type) {
+        if (!soundEnabled) return;
+        try {
+          if (!audioCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            audioCtx = new Ctx();
+          }
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          if (type === "ok") {
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.08);
+            osc.frequency.setValueAtTime(783.99, now + 0.16);
+            gain.gain.setValueAtTime(0.16, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+            osc.start(now);
+            osc.stop(now + 0.36);
+          } else if (type === "err") {
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(210, now);
+            osc.frequency.linearRampToValueAtTime(140, now + 0.22);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+            osc.start(now);
+            osc.stop(now + 0.26);
+          } else if (type === "win") {
+            osc.type = "triangle";
+            [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+              osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+            });
+            gain.gain.setValueAtTime(0.18, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            osc.start(now);
+            osc.stop(now + 0.55);
+          }
+        } catch (e) {}
+      }
+
+      function buildLabelCards() {
+        leftCol.innerHTML = "";
+        rightCol.innerHTML = "";
+
+        ITEMS.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "label-card";
+          card.dataset.id = item.id;
+          card.textContent = item.name;
+          card.setAttribute("role", "button");
+          card.setAttribute("tabindex", "0");
+
+          setupCardPointerEvents(card, item);
+
+          card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              selectLabel(item.id);
+            }
+          });
+
+          if (item.side === "left") {
+            leftCol.appendChild(card);
+          } else {
+            rightCol.appendChild(card);
+          }
+        });
+      }
+
+      function setupCardPointerEvents(card, item) {
+        let startX = 0;
+        let startY = 0;
+        let isDragging = false;
+        let ghost = null;
+
+        card.addEventListener("pointerdown", (e) => {
+          if (gameOver || foundIds.has(item.id)) return;
+          startX = e.clientX;
+          startY = e.clientY;
+          isDragging = false;
+          card.setPointerCapture(e.pointerId);
+        });
+
+        card.addEventListener("pointermove", (e) => {
+          if (!card.hasPointerCapture(e.pointerId)) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          if (!isDragging && Math.hypot(dx, dy) > 10) {
+            isDragging = true;
+            selectLabel(item.id);
+            ghost = document.createElement("div");
+            ghost.className = "drag-ghost";
+            ghost.textContent = item.name;
+            document.body.appendChild(ghost);
+          }
+          if (isDragging && ghost) {
+            ghost.style.left = e.clientX + "px";
+            ghost.style.top = e.clientY + "px";
+          }
+        });
+
+        card.addEventListener("pointerup", (e) => {
+          if (card.hasPointerCapture(e.pointerId)) {
+            card.releasePointerCapture(e.pointerId);
+          }
+          if (isDragging) {
+            if (ghost) {
+              ghost.remove();
+              ghost = null;
+            }
+            const dropEl = document.elementFromPoint(e.clientX, e.clientY);
+            const targetGroup = dropEl ? dropEl.closest(".city-target") : null;
+            const distractorGroup = dropEl ? dropEl.closest(".city-distractor") : null;
+            const inSvg = dropEl && citySvg.contains(dropEl);
+            if (inSvg) {
+              handleBoardAttempt(
+                targetGroup ? targetGroup.dataset.id : null,
+                distractorGroup ? distractorGroup.dataset.distractor : null,
+                e.clientX,
+                e.clientY,
+                item.id
+              );
+            }
+          } else {
+            if (!foundIds.has(item.id) && !gameOver) {
+              selectLabel(item.id);
+            }
+          }
+          isDragging = false;
+        });
+
+        card.addEventListener("pointercancel", () => {
+          if (ghost) {
+            ghost.remove();
+            ghost = null;
+          }
+          isDragging = false;
+        });
+      }
+
+      function selectLabel(id) {
+        if (foundIds.has(id) || gameOver) return;
+        activeId = id;
+        updateUI();
+      }
+
+      function getNextUnfoundId() {
+        const next = ITEMS.find((item) => !foundIds.has(item.id));
+        return next ? next.id : null;
+      }
+
+      function updateUI() {
+        const cards = document.querySelectorAll(".label-card");
+        cards.forEach((c) => {
+          const id = c.dataset.id;
+          c.classList.toggle("found", foundIds.has(id));
+          c.classList.toggle("active", !gameOver && id === activeId && !foundIds.has(id));
+        });
+
+        const activeItem = ITEMS.find((i) => i.id === activeId);
+        if (activeItem && !foundIds.has(activeId) && !gameOver) {
+          activePromptBox.style.display = "flex";
+          activeTargetName.textContent = activeItem.name;
+        } else {
+          activePromptBox.style.display = "none";
+        }
+
+        progressPill.textContent = `${foundIds.size} / ${ITEMS.length} kész`;
+
+        const heartEls = heartsContainer.querySelectorAll(".heart");
+        heartEls.forEach((h, idx) => {
+          h.classList.toggle("lost", idx >= lives);
+        });
+      }
+
+      function showClickRipple(clientX, clientY, isOk) {
+        const rect = tableauWrap.getBoundingClientRect();
+        const ripple = document.createElement("div");
+        ripple.className = "click-feedback" + (isOk ? " ok" : "");
+        ripple.style.left = (clientX - rect.left) + "px";
+        ripple.style.top = (clientY - rect.top) + "px";
+        tableauWrap.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 580);
+      }
+
+      function setBanner(text, type = "") {
+        infoBanner.textContent = text;
+        infoBanner.className = "info-banner" + (type ? " " + type : "");
+      }
+
+      function placeMapPin(item) {
+        const ns = "http://www.w3.org/2000/svg";
+        const g = document.createElementNS(ns, "g");
+        g.setAttribute("class", "map-pin");
+        g.setAttribute("data-pin-id", item.id);
+
+        const padX = 11;
+        const approxWidth = Math.max(82, item.name.length * 9 + padX * 2);
+        const boxH = 26;
+        const x = Math.min(Math.max(item.pinX - approxWidth / 2, 10), 1310 - approxWidth);
+        const y = Math.min(Math.max(item.pinY - boxH / 2, 52), 670 - boxH);
+
+        const rect = document.createElementNS(ns, "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", approxWidth);
+        rect.setAttribute("height", boxH);
+        rect.setAttribute("rx", "7");
+        rect.setAttribute("fill", "#fff9eb");
+        rect.setAttribute("stroke", "#2e7d4f");
+        rect.setAttribute("stroke-width", "2.2");
+
+        const txt = document.createElementNS(ns, "text");
+        txt.setAttribute("x", x + approxWidth / 2);
+        txt.setAttribute("y", y + 18);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("font-family", "Segoe UI, sans-serif");
+        txt.setAttribute("font-size", "13.5");
+        txt.setAttribute("font-weight", "800");
+        txt.setAttribute("fill", "#1d4f32");
+        txt.textContent = "✓ " + item.name;
+
+        g.appendChild(rect);
+        g.appendChild(txt);
+        pinsLayer.appendChild(g);
+
+        const targetGroup = citySvg.querySelector(`.city-target[data-id="${item.id}"]`);
+        if (targetGroup) targetGroup.classList.add("found-glow");
+      }
+
+      function handleBoardAttempt(clickedTargetId, clickedDistractorId, clientX, clientY, overrideItemId = null) {
+        if (gameOver) return;
+
+        if (clickedTargetId && foundIds.has(clickedTargetId) && !overrideItemId) {
+          const foundItem = ITEMS.find((i) => i.id === clickedTargetId);
+          setBanner(`${foundItem.name}: ${foundItem.fact}`, "success");
+          return;
+        }
+
+        const expectedId = overrideItemId || activeId;
+        const expectedItem = ITEMS.find((i) => i.id === expectedId);
+        if (!expectedItem) return;
+
+        if (clickedTargetId === expectedId) {
+          foundIds.add(expectedId);
+          showClickRipple(clientX, clientY, true);
+          placeMapPin(expectedItem);
+          playTone(foundIds.size === ITEMS.length ? "win" : "ok");
+          setBanner(`Helyes! ${expectedItem.name} – ${expectedItem.fact}`, "success");
+
+          if (foundIds.size === ITEMS.length) {
+            gameOver = true;
+            activeId = null;
+            updateUI();
+            setTimeout(() => showEndModal(true), 450);
+          } else {
+            activeId = getNextUnfoundId();
+            updateUI();
+          }
+        } else {
+          lives = Math.max(0, lives - 1);
+          showClickRipple(clientX, clientY, false);
+          playTone("err");
+          tableauWrap.classList.remove("shake");
+          void tableauWrap.offsetWidth;
+          tableauWrap.classList.add("shake");
+
+          const clickedItem = ITEMS.find((i) => i.id === clickedTargetId);
+          if (clickedItem) {
+            setBanner(`Hoppá! Ez a(z) ${clickedItem.name}, nem a(z) ${expectedItem.name}. (-1 élet)`, "error");
+          } else if (clickedDistractorId && DISTRACTORS[clickedDistractorId]) {
+            setBanner(`Hoppá! Ez egy ${DISTRACTORS[clickedDistractorId]}, nem a(z) ${expectedItem.name}. (-1 élet)`, "error");
+          } else {
+            setBanner(`Hoppá! Itt nem található a(z) ${expectedItem.name}. (-1 élet)`, "error");
+          }
+
+          updateUI();
+
+          if (lives <= 0) {
+            gameOver = true;
+            updateUI();
+            setTimeout(() => showEndModal(false), 450);
+          }
+        }
+      }
+
+      function showEndModal(won) {
+        if (won) {
+          modalEmoji.textContent = "🏆";
+          modalTitle.textContent = "Nagyszerű munka!";
+          modalMessage.textContent = `Mind a 10 elemet sikeresen felcímkézted a 20. század eleji város tablóján (${lives} megmaradt élettel). Kattints bármelyik címkére a magyarázat felidézéséhez!`;
+          modalRevealBtn.textContent = "Tabló megtekintése";
+        } else {
+          modalEmoji.textContent = "💔";
+          modalTitle.textContent = "Elfogyott a 3 életed!";
+          modalMessage.textContent = `Eddig ${foundIds.size} elemet találtál meg a 10-ből. Próbáld meg újra, vagy nézd meg a teljes megoldást a közös megbeszéléshez!`;
+          modalRevealBtn.textContent = "Megoldás megtekintése";
+        }
+        endModal.classList.add("open");
+      }
+
+      function revealAllSolution() {
+        endModal.classList.remove("open");
+        gameOver = true;
+        ITEMS.forEach((item) => {
+          if (!foundIds.has(item.id)) {
+            foundIds.add(item.id);
+            placeMapPin(item);
+          }
+        });
+        updateUI();
+        setBanner("A teljes megoldás látható. Kattints bármelyik városi elemre a történelmi magyarázatért!", "success");
+      }
+
+      function resetGame() {
+        endModal.classList.remove("open");
+        lives = MAX_LIVES;
+        foundIds.clear();
+        activeId = ITEMS[0].id;
+        gameOver = false;
+        pinsLayer.innerHTML = "";
+        document.querySelectorAll(".city-target").forEach((el) => el.classList.remove("found-glow"));
+        setBanner("Keresd meg a 20. század eleji fejlődő város 10 újszerű elemét a tablón!");
+        updateUI();
+      }
+
+      citySvg.addEventListener("click", (e) => {
+        const targetGroup = e.target.closest(".city-target");
+        const distractorGroup = e.target.closest(".city-distractor");
+        const clickedId = targetGroup ? targetGroup.dataset.id : null;
+        const distractorId = distractorGroup ? distractorGroup.dataset.distractor : null;
+
+        if (gameOver && clickedId) {
+          const item = ITEMS.find((i) => i.id === clickedId);
+          if (item && foundIds.has(item.id)) {
+            setBanner(`${item.name}: ${item.fact}`, "success");
+          }
+          return;
+        }
+
+        handleBoardAttempt(clickedId, distractorId, e.clientX, e.clientY);
+      });
+
+      soundBtn.addEventListener("click", () => {
+        soundEnabled = !soundEnabled;
+        soundBtn.textContent = soundEnabled ? "🔊 Hang" : "🔇 Némítva";
+      });
+
+      restartBtn.addEventListener("click", resetGame);
+      modalRestartBtn.addEventListener("click", resetGame);
+      modalRevealBtn.addEventListener("click", revealAllSolution);
+
+      buildLabelCards();
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
